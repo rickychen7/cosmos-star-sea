@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>画布测试 + 固定二维码</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <style>
+    body {
+      display: flex;
+      background: #222;
+      color: white;
+      font-family: sans-serif;
+    }
+    #canvasWrapper, #resultWrapper {
+      flex: 1;
+      margin: 10px;
+      background: #333;
+      padding: 10px;
+    }
+    canvas {
+      border: 1px solid #aaa;
+      background: white;
+    }
+    #controls {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- 左边画布 -->
+  <div id="canvasWrapper">
+    <h3>画布</h3>
+    <canvas id="drawCanvas" width="500" height="500"></canvas>
+    <div id="controls">
+      <button onclick="setTool('draw')">画笔</button>
+      <button onclick="setTool('erase')">橡皮擦</button>
+      <button onclick="clearCanvas()">清空</button>
+      <button onclick="uploadImage()">上传</button>
+      <button onclick="generateImage()">生成</button>
+    </div>
+  </div>
+
+  <!-- 右边结果图 + 二维码 -->
+  <div id="resultWrapper">
+    <h3>生成图像</h3>
+    <img id="resultImg" src="" width="500" height="500" alt="生成结果">
+    <div id="qrcode" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let drawing = false;
+    let tool = 'draw';
+
+    function setTool(t) { tool = t; }
+    function clearCanvas() {
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    let emotionTimer = null;
+let currentEmotion = 2; // 默认 fallback 值
+
+canvas.addEventListener('mousedown', () => {
+  drawing = true;
+
+  // 清掉上一次的定时器
+  if (emotionTimer) clearTimeout(emotionTimer);
+
+  // 3 秒后请求 emotion
+  emotionTimer = setTimeout(() => {
+    fetch("http://127.0.0.1:5001/get_emotion")
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.emotion) {
+          currentEmotion = data.emotion;
+        } else {
+          currentEmotion = 2; // fallback
+        }
+        console.log(":performing_arts: Emotion 确定为:", currentEmotion);
+      })
+      .catch(err => {
+        console.error(":x: 获取 emotion 失败:", err);
+        currentEmotion = 2;
+      });
+  }, 3000);
+});
+
+    canvas.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); });
+    canvas.addEventListener('mousemove', draw);
+
+    function draw(e) {
+      if (!drawing) return;
+      ctx.lineWidth = (tool === 'draw') ? 2 : 20;
+      ctx.strokeStyle = (tool === 'draw') ? "black" : "white";
+      ctx.lineCap = "round";
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function uploadImage() {
+  canvas.toBlob(function(blob) {
+    const formData = new FormData();
+    formData.append("file", blob, "canvas.png");
+
+    fetch("http://127.0.0.1:5001/upload", {
+      method: "POST",
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("上传成功:", data);
+      alert("上传成功！文件已保存到服务器。");
+    })
+    .catch(err => {
+      console.error("上传失败:", err);
+      alert("上传失败");
+    });
+  }, "image/png");
+}
+
+function generateImage() {
+  fetch("http://127.0.0.1:5001/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ emotion: currentEmotion || 2 })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      const img = document.getElementById("resultImg");
+      // 加时间戳防止缓存
+      img.src = data.url + "?t=" + Date.now();
+      img.style.display = "block";
+
+      // 更新二维码
+      document.getElementById("qrcode").innerHTML = "";
+      new QRCode(document.getElementById("qrcode"), data.url);
+      console.log(":white_check_mark: 生成成功:", data.url);
+    } else {
+      console.error(":x: 生成失败:", data);
+      alert("生成失败: " + (data.error || "未知错误"));
+    }
+  })
+  .catch(err => {
+    console.error(":x: 生成出错:", err);
+    alert("生成出错");
+  });
+}
+
+  </script>
+</body>
+</html>
+
+

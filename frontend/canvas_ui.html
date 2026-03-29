@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>共济星海 · Canvas UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <!-- 背景音乐 -->
+  <audio id="backgroundMusic" loop preload="auto" style="display: none;">
+    <source src="./assets/audio/background.mp3" type="audio/mpeg">
+    <!-- 备用格式 -->
+    <source src="./assets/audio/background.ogg" type="audio/ogg">
+    <source src="./assets/audio/background.wav" type="audio/wav">
+    您的浏览器不支持音频播放。
+  </audio>
+
+  <!-- 语音引导 -->
+  <audio id="voiceGuide" preload="auto" style="display: none;">
+    <source src="" type="audio/mpeg">
+    您的浏览器不支持音频播放。
+  </audio>
+
+  <!-- 上传提示框 -->
+  <div id="uploadModal" style="display: none; position: fixed; inset: 0; z-index: 999; pointer-events: none;">
+    <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto;">
+      <div style="background: rgba(94, 118, 255, 0.7); color: #fff; border-radius: 20px; padding: 40px 30px; box-shadow: 0 10px 30px rgba(0,0,0,.25); max-width: 400px; min-width: 300px; text-align: center;">
+        <h3 style="margin: 0 0 8px; font-size: 22px; font-weight: 800; line-height: 1.1;">上传成功!</h3>
+        <p style="margin: 0; font-size: 16px; font-weight: 700; opacity: .95; line-height: 1.2;">文件已保存到服务器。</p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* =====================【常用变量 | 集中可调】===================== */
+    :root{
+      --light-blue:#9FBFFF;
+      --panel-gray:#C9C9C9;
+      --page-bg:#081535;
+
+      --shadow:0 16px 40px rgba(0,0,0,.35);
+      --radius-lg:12px;
+      --radius-md:22px;
+
+      /* 面板留白、二维码、工具栏等通用 */
+      --work-area:110%;        /* 白框画布更大 */
+      --qr-size:96px;         /* 小二维码 */
+      --qr-offset:3px;       /* 二维码更靠内 */
+      
+      /* 【新增/修改】结果图内边距控制（用于右侧 panel） */
+      --result-img-inset: 38px; /* 控制结果图与圆角面板的间距 */
+      --result-img-radius: 18px; /* 结果图本身的圆角 */
+
+      /* FaceOSC 小窗 */
+      --face-slot:120px;
+      --face-slot-inset:26px;
+      --face-label-size:13px;
+
+      /* 1/2/3/6 页点击热区 */
+      --hot-w:22%;
+      --hot-h:10%;
+      --p1-hot-top:66%;
+      --p2-hot-top:73%;
+      --p3-hot-top:76%;
+      --p6-hot-top:72%;
+
+      /* —— 第1页：标题/副标题/按钮位置字号 —— */
+      --p1-title-size:90px;
+      --p1-sub-size:32px;
+      --p1-title-left:50%;
+      --p1-title-top:42%;
+      --p1-btn-top:80%;
+
+      /* —— 第2页：五行文案（3 行中文 + 2 行英文） —— */
+      --p2-cn1-size:60px;  --p2-cn2-size:60px;  --p2-cn3-size:45px;
+      --p2-en1-size:36px;  --p2-en2-size:36px;
+      --p2-block-top:42%;
+      --p2-cn1-gap:8px;    --p2-cn2-gap:50px;   --p2-cn3-gap:70px;
+      --p2-en1-gap:13px;    --p2-en2-gap:10px;
+
+      /* —— 第3页：标题 + 步骤区 + 说明文字 —— */
+      --p3-top:14%;             /* 顶部主副标题块位置 */
+      --p3-title-size:52px;     /* 主标题 */
+      --p3-en-size:36px;        /* 英文副标题 */
+
+      --p3-desc-top:35%;        /* 中英说明段落位置（在标题下方） */
+      --p3-desc-cn:34px;        /* 说明中文 */
+      --p3-desc-en:21px;        /* 说明英文 */
+      --p3-desc-gap:18px;
+
+      --p3-steps-top:60%;       /* 四张卡片整体垂直位置 */
+      --p3-card-w:240px;        /* 卡片宽高与圆角 */
+      --p3-card-h:240px;
+      --p3-card-radius:26px;
+      --p3-card-gap:96px;       /* 步骤卡片间距 */
+      --p3-img-inset:24px;      /* 图片与卡片四周留白 */
+
+      --p3-badge-size:40px;     /* 左下角序号圆形 */
+      --p3-badge-font:16px;
+      --p3-badge-offset:10px;
+      --p3-badge-bg:#70A6FF;
+
+      --p3-cap-cn:18px;         /* 每一步骤下方中文说明 */
+      --p3-cap-en:14px;         /* 每一步骤下方英文字号 */
+      --p3-cap-gap:12px;        /* 图片与中文说明间距（向下） */
+
+      /* 第3页矩形背景尺寸（方便你微调） */
+      --p3-rect-top:26vh;       /* 越大越靠下 */
+      --p3-rect-width:70vw;     /* 整体覆盖宽度 */
+      --p3-rect-maxw:100vw;    /* 超大屏限制 */
+      --p3-rect-height:56vh;    /* 高度（vh 更适合自适应） */
+      --p3-rect-maxh:100vh;     /* 超大屏限制 */
+      --p3-rect-radius:40px;    /* 圆角 */
+      --p3-rect-opacity:.90;    /* 透明度（png 本身含渐变） */
+    }
+
+    :root{
+      --p3-cap-cn-offset: 80px;   /* 中文距卡片底部距离 */
+      --p3-cap-gap: 28px;         /* 英文比中文再往下的间距 */
+      --p3-cap-cn: 18px;          /* 中文字号 */
+      --p3-cap-en: 16px;          /* 英文字号 */
+    }
+
+    .p3 .card > p.cn,
+    .p3 .card > p.en {
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      width:100%;
+      text-align:center;
+      color:#fff;
+      text-shadow:0 2px 8px rgba(0,0,0,.35);
+      line-height:1.25;
+      margin:0;
+      pointer-events:none;
+      z-index:3;
+    }
+
+    .p3 .card > p.cn {
+      bottom: calc(-1 * var(--p3-cap-cn-offset));
+      font-size: var(--p3-cap-cn);
+      font-weight:700;
+    }
+
+    .p3 .card > p.en {
+      bottom: calc(-1 * var(--p3-cap-cn-offset) - var(--p3-cap-gap));
+      font-size: var(--p3-cap-en);
+      font-weight:500;
+      opacity:.95;
+    }
+    /* 第三页按钮整体 */
+    .p3 .ok-btn {
+      /* 不动位置和外观，只调文字 */
+      text-align: center;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif; /* 字体族 */
+    }
+
+
+    /* =====================【基础】===================== */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--page-bg); color:#fff;
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans SC",Arial,sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      overflow:hidden; /* 滚轮切页，不出现浏览器滚条 */
+    }
+
+    /* 每一页独立容器（全屏 section） */
+    .page{position:absolute; inset:0; display:none; background-position:center; background-size:cover; background-repeat:no-repeat;}
+    .page.active{display:block}
+
+    /* 覆盖层：仅作为该页的最外层容器（不跨页） */
+    .overlay-wrap{position:absolute; inset:0}
+    .txt{position:absolute; text-shadow:0 3px 18px rgba(0,0,0,.45)}
+
+    /* =====================【通用按钮外观（仅外观），每页尺寸用各自作用域改】===================== */
+    .btn{
+      display:flex; flex-direction:column; justify-content:center; align-items:center;
+      width:215px; height:80px; border:none; border-radius:29px;
+      background:linear-gradient(180deg,#3BA9FF 0%,#1E46FF 100%);
+      box-shadow:0 12px 28px rgba(0,50,200,0.4);
+      color:#fff; cursor:pointer; user-select:none; text-shadow:0 3px 18px rgba(0,0,0,.45);
+    }
+    .btn span.cn{font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;font-weight:700;font-size:26px;line-height:1.1;}
+    .btn span.en{font-family:"Inter","Segoe UI","Roboto",sans-serif;font-weight:800;font-size:22px;line-height:1;margin-top:4px;letter-spacing:.5px;}
+    .btn:hover{background:linear-gradient(180deg,#4FB7FF 0%,#2955FF 100%); transform:translateY(-2px); box-shadow:0 14px 30px rgba(0,50,200,.55); transition:all .25s ease;}
+    .btn small{display:block; font-weight:700; opacity:.9; margin-top:2px}
+
+    /* 只点击热区才跳页（避免误触） */
+    .p1 .hot,.p2 .hot,.p3 .hot,.p6 .hot{position:absolute; left:50%; transform:translate(-50%,-50%); width:var(--hot-w); height:var(--hot-h); cursor:pointer;}
+    .p1 .hot{ top:var(--p1-btn-top); } .p2 .hot{ top:var(--p2-hot-top); } .p3 .hot{ top:var(--p3-hot-top); } .p6 .hot{ top:var(--p6-hot-top); }
+    
+    /* 第3页按钮热区特殊处理：覆盖实际按钮位置 */
+    .p3 .hot {
+      left: auto !important;
+      right: 7% !important;
+      bottom: 7% !important;
+      top: auto !important;
+      transform: none !important;
+      width: 215px !important;
+      height: 80px !important;
+    }
+
+    /* =====================【第 1 页】===================== */
+    .p1 .brand{left:var(--p1-title-left); top:var(--p1-title-top); transform:translate(-50%,-50%); text-align:center;}
+    .p1 h1{margin:0; font-size:var(--p1-title-size); font-weight:800; letter-spacing:1px}
+    .p1 h2{margin:.5px 0 0; font-size:var(--p1-sub-size); font-weight:800; letter-spacing:2px}
+    .p1 .cta{position:absolute; left:50%; top:var(--p1-btn-top); transform:translate(-50%,-50%);}
+
+    /* =====================【第 2 页】===================== */
+    .p2 .btn{width:360px; height:100px; border-radius:29px; font-size:26px;}
+    .p2 .block{position:absolute; left:50%; top:var(--p2-block-top); transform:translate(-50%,-50%); text-align:center; width:85%;}
+    .p2 .cn1{font-size:var(--p2-cn1-size)!important; line-height:1.1; font-weight:800; margin:0 0 var(--p2-cn1-gap);}
+    .p2 .cn2{font-size:var(--p2-cn2-size)!important; line-height:1.1; font-weight:800; margin:0 0 var(--p2-cn2-gap);}
+    .p2 .cn3{font-size:var(--p2-cn3-size)!important; line-height:1.1; font-weight:800; margin:0 0 var(--p2-cn3-gap);}
+    .p2 .en1{font-size:var(--p2-en1-size)!important; line-height:1.1; font-weight:700; opacity:.95; margin:0 0 var(--p2-en1-gap);}
+    .p2 .en2{font-size:var(--p2-en2-size)!important; line-height:1.1; font-weight:700; opacity:.95; margin:0 0 var(--p2-en2-gap);}
+
+    /* =====================【第 3 页 | 只在 p3 作用域内生效】===================== */
+    .page.p3{position:relative;}
+    .page.p3 .overlay-wrap{position:relative; width:100%; min-height:100vh; z-index:0;} /* 建立定位上下文，不跨页 */
+
+    /* 顶部标题和副标题 */
+    .p3 .title{position:absolute; left:50%; top:var(--p3-top); transform:translate(-50%,-50%); text-align:center; width:86%;}
+    .p3 .title h3{margin:0; font-size:var(--p3-title-size); font-weight:800}
+    .p3 .title p {margin:8px 0 0; font-size:var(--p3-en-size); font-weight:700; opacity:.95}
+
+    /* 中/英说明段落（标题下方一行中文 + 一行英文） */
+    .p3 .p3-desc{
+      position:absolute; left:50%; top:var(--p3-desc-top); transform:translate(-50%,-50%);
+      width:80%; text-align:center; z-index:3;
+      text-shadow:0 2px 10px rgba(0,0,0,.35);
+    }
+    .p3 .p3-desc .cn {
+      margin: 0 0 var(--p3-desc-gap);
+      font-size: var(--p3-desc-cn);
+      font-weight: 800;
+    }
+    .p3 .p3-desc .en{margin:0; font-size:var(--p3-desc-en); font-weight:700; opacity:.95;}
+
+    /* 矩形背景：在白卡片下方（不遮挡），只在 p3 内生效 */
+    .p3 .p3-bg{
+      position:absolute; left:50%; transform:translateX(-50%);
+      top:var(--p3-rect-top); width:var(--p3-rect-width); max-width:var(--p3-rect-maxw);
+      height:var(--p3-rect-height); max-height:var(--p3-rect-maxh);
+      z-index:1; pointer-events:none;
+    }
+    .p3 .p3-bg img{display:block; width:100%; height:100%; object-fit:cover; border-radius:var(--p3-rect-radius); opacity:var(--p3-rect-opacity);}
+
+    /* 四步卡片区域（在矩形背景之上） */
+    .p3 .steps{position:absolute; left:50%; top:var(--p3-steps-top); transform:translate(-50%,-50%); display:flex; gap:var(--p3-card-gap); z-index:2;}
+    .p3 .card{
+      position:relative;
+      width:var(--p3-card-w); height:var(--p3-card-h);
+      border-radius:var(--p3-card-radius); background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.28);
+      overflow:hidden; margin-bottom:96px; /* 预留下面说明文字的空间 */
+    }
+    .p3 .card .media{
+      position:absolute; inset:var(--p3-img-inset);
+      border-radius:calc(var(--p3-card-radius) - 6px);
+      display:flex; align-items:center; justify-content:center; background:#fff; overflow:hidden;
+    }
+    .p3 .card .media img{width:100%; height:100%; object-fit:contain;}
+
+    /* === 仅调整第3页第1和第3步骤的图标大小 === */
+    .p3 .steps .card:nth-child(1) .media img {
+      width: 120px;
+      height: auto;        /* 保持比例 */
+      margin-top: 30px;
+    }
+
+    .p3 .steps .card:nth-child(3) .media img {
+      width: 120px;
+      height: auto;        /* 保持比例 */
+      margin-top: 30px;
+    }
+
+
+    /* 左下角序号 */
+    .p3 .card .badge{
+      position:absolute; left:var(--p3-badge-offset); bottom:var(--p3-badge-offset);
+      width:var(--p3-badge-size); height:var(--p3-badge-size); border-radius:999px; background:var(--p3-badge-bg);
+      color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:var(--p3-badge-font); line-height:1;
+    }
+
+    /* —— 步骤下方的中英文说明：用现有 DOM（不改结构） —— */
+    .p3 .card{ position:relative; overflow:visible; } /* 允许文字探出卡片下方 */
+
+    .p3 .card > p.cn,
+    .p3 .card > p.en{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      width:100%;
+      text-align:center;
+      color:#fff;
+      text-shadow:0 2px 8px rgba(0,0,0,.35);
+      line-height:1.2;
+      margin:0;
+      pointer-events:none;
+    }
+
+    /* 中文基准行：以卡片底为基准下移 */
+    .p3 .card > p.cn{
+      bottom: calc(-1 * var(--p3-cap-cn-offset, 80px));
+      font-size: var(--p3-cap-cn, 22px);
+      font-weight:700;
+    }
+
+    /* 英文行：在“中文基准行”之下再加一个间距，确保四卡对齐 */
+    .p3 .card > p.en{
+      bottom: calc(-1 * var(--p3-cap-cn-offset, 80px) - var(--p3-cap-gap, 26px));
+      font-size: var(--p3-cap-en, 16px);
+      font-weight:500;
+      opacity:.95;
+    }
+
+    /* 放到 <style> 的最后，或紧跟 p3 样式后，用于覆盖 */
+    .p3 .card{
+      overflow: visible;  /* ← 允许文字出现在卡片外 */
+    }
+
+    /* 可选：如果文字仍然离卡片太近/太远，这里调距离 */
+    :root{
+      --p3-cap-cn-offset: 80px;  /* 中文距离卡片底部的外移量 */
+      --p3-cap-en-offset: 108px;  /* 英文距离卡片底部的外移量 */
+    }
+
+    /* 第三页按钮整体 */
+    .p3 .btn {
+      text-align: center;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    /* 中文“好哒” */
+    .p3 .btn {
+      font-size: 30px;               /* 调大整体字体 */
+      font-weight: 600;              /* 粗体 */
+      letter-spacing: 1px;           /* 字间距 */
+      color: #ffffff;                /* 字体颜色 */
+      text-shadow: 0 3px 10px rgba(0,0,0,0.25);
+    }
+
+    /* 英文“OK”在 small 标签里 */
+    .p3 .btn small {
+      display: block;
+      font-size: 26px;               /* 英文字体大小 */
+      font-weight: 650;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      margin-top: -4px;               /* 与"好哒"的距离 */
+    }
+
+    /* OK 按钮（右下） */
+    .p3 .ok{
+      position:absolute; right:7%; bottom:7%;
+    }
+
+    /* =====================【第 4/5 页】===================== */
+    .work-wrap{position:absolute; inset:0; padding:160px 80px 40px 80px;}
+    .titlebar{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; text-shadow:0 2px 12px rgba(0,0,0,.35);}
+    .titlebar .ttl{font-size:36px; font-weight:800; letter-spacing:.5px;}
+    .titlebar .sub{font-weight:700; opacity:.95;}
+    .board{display:grid; grid-template-columns:1fr 1fr; gap:28px; height:calc(100% - 258px);}
+    /* 灰色底框（外层固定尺寸，可独立调） */
+    .panel{
+      background: var(--panel-gray);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      /* ✅ 这里直接控制灰色框的尺寸 */
+      width: 990px;      /* 灰框宽度 */
+      height: 840px;     /* 灰框高度 */
+
+      /* 灰边厚度控制画布与灰框间距 */
+      padding: 1px;
+    }
+
+    /* 白色画布区域（独立尺寸，不与灰框联动） */
+    .panel-inner{
+      width: 800px;           /* 或固定像素，比如 720px */
+      height: 720px;
+      min-width: 420px;
+      min-height: 420px;
+      background: transparent !important;
+      box-shadow: none !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .faceosc-slot{position:absolute; left:var(--face-slot-inset); top:var(--face-slot-inset); width:var(--face-slot); height:var(--face-slot); z-index:3;}
+    .faceosc-base{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
+    .faceosc-inner{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;}
+    
+    /* 第4页和第5页专用：调整face图标位置，让它向上移动 */
+    #faceHud .faceosc-inner, #faceHudP5 .faceosc-inner {
+      top: 4% !important;
+      bottom: 12% !important;
+    }
+    .faceosc-head{width:50%; height:50%; object-fit:contain;}
+    .emo-label{position:absolute; left:var(--face-slot-inset); top:var(--face-slot-inset); transform:translateY(calc(100% + 8px)); width:var(--face-slot); text-align:center; font-weight:600; font-size:var(--face-label-size); color:var(--light-blue); text-shadow:0 2px 8px rgba(0,0,0,.40); z-index:3;}
+    
+    /* 第4页和第5页专用：让face图标和情绪标签位置一致，文字在方形内部 */
+    #faceHud .faceosc-slot, #faceHudP5 .faceosc-slot {
+      position: relative !important;
+      left: 0 !important;
+      top: 0 !important;
+      background: linear-gradient(140deg,#5aa0ff,#35d1d1);
+      border-radius: 28px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      padding: 12% 10% 24% 10%;
+    }
+    
+    #faceHud .emo-label, #faceHudP5 .emo-label {
+      position: absolute !important;
+      left: 0 !important;
+      top: auto !important;
+      bottom: 6px !important;
+      transform: none !important;
+      width: 100% !important;
+      color: #FFF !important;
+      font-size: 13px !important;
+      padding: 4px 8px !important;
+      box-sizing: border-box !important;
+    }
+
+    canvas#drawCanvas{width:92%; height:92%; background:#fff; border-radius:var(--radius-md); box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 12px 28px rgba(0,0,0,.18);}
+    
+    /* 【修改】右侧结果图样式，实现自适应和内边距 (圆角面板包围直角图) */
+    /* 【修改】右侧结果图样式，实现等比例缩小，并匹配左侧画布尺寸 */
+    .result-img{
+        /* 移除绝对定位和手动计算的 inset/bottom */
+       position: relative; /* 改为相对定位 */
+       width: 92%;         /* 匹配左侧画布尺寸 */
+       height: 92%;        /* 匹配左侧画布尺寸 */
+       margin: auto;       /* 确保在父容器中居中 */
+            
+       background:#f0f0f0; 
+       border-radius:var(--result-img-radius); 
+            
+       object-fit:contain; /* 关键：等比例缩小到这个 92% 的矩形区域内 */
+            
+       box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 12px 28px rgba(0,0,0,.18); 
+       display:block;
+    }
+    
+    /* 二维码尺寸控制 */
+    .qrcode-wrap{
+      position:absolute;
+      right:var(--qr-offset);
+      bottom:var(--qr-offset);
+      width:var(--qr-size);
+      height:var(--qr-size);
+      border-radius:10px;
+      background:#eaf3ff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 8px 18px rgba(0,0,0,.25);
+      z-index:999;
+    }
+
+    /* 🔧 关键：强制内部 canvas / img 自适应容器大小 */
+    .qrcode-wrap canvas,
+    .qrcode-wrap img{
+      width:100% !important;
+      height:100% !important;
+      object-fit:contain;
+    }
+
+     /* 工具栏固定在左侧灰色面板下方（p4/p5 通用） */
+    .toolbar{
+      position:absolute;
+      /* 与 .work-wrap 的左右内边距一致（work-wrap: padding:48px 56px） */
+      left:56px;
+      /* 宽度 = 两列网格去掉左右内边距与列间距后的 1/2 */
+      width:calc((100% - 56px*2 - 28px)/2);
+      bottom:var(--toolbar-bottom-gap);
+
+      display:flex;
+      gap:72px;
+      justify-content:center;   /* 居中对齐到左面板底部 */
+      align-items:center;
+      user-select:none;
+      z-index:5;                /* 保证浮在面板之上 */
+    }
+
+    /* 小卡片保持现在的布局即可；若要更靠近底边，可微调变量 */
+    :root{ --toolbar-bottom-gap: 105px; }
+
+    /* 响应式微调：小屏时让工具栏更紧凑些 */
+    @media (max-width:1200px){
+      .toolbar{ gap:18px; }
+    }
+
+    .tool{width:72px; display:flex; flex-direction:column; align-items:center; text-align: center; gap:8px;}
+    .tool-btn{width:80px; height:80px; border:none; border-radius:18px; cursor:pointer; background:transparent; padding:0;}
+    .tool-btn img{width:100%; height:100%; object-fit:contain; display:block;}
+    .tool .cn{font-size:16px; color:var(--light-blue); line-height:1.15; font-weight:600;}
+    .tool .en{font-size:14px; color:var(--light-blue); opacity:.9; line-height:1.1; font-weight:600;}
+    
+    /* 【修改】遵循要求：锁定时，不出现颜色变化 */
+    .tool-btn:disabled{cursor:not-allowed; opacity: 1; filter: none;} 
+
+    .overlay{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:3;}
+    .overlay .sheet{width:60%; max-width:760px; min-width:520px; padding:32px 26px; text-align:center; border-radius:28px; background:rgba(60,110,240,.70); box-shadow:0 18px 40px rgba(0,0,0,.35); backdrop-filter:blur(8px);}
+    .overlay .sheet h3{margin:0 0 8px; font-size:22px; font-weight:800}
+    .overlay .sheet p {margin:0; font-size:14px; font-weight:700; opacity:.95}
+
+    .wheel-guard{ position:absolute; inset:0; pointer-events:none; } /* 不再挡住鼠标 */
+    canvas#drawCanvas{ touch-action:none; cursor:crosshair; }       /* 触摸设备也能画 */
+
+
+    @media (max-width:1200px){
+      .panel-inner{min-width:360px; min-height:360px}
+      .qrcode-wrap{width:96px; height:96px}
+      .faceosc-slot{width:120px; height:120px}
+      .p1 h1{font-size:70px} .p1 h2{font-size:24px}
+    }
+        /* ================= 第4页专用样式 ================= */
+    .p4 #leftPanel{ position:relative; }
+
+    #faceHud, #faceHudP5{
+      position:absolute;
+      left: var(--face-slot-inset, 26px);
+      top: var(--face-slot-inset, 26px);
+      width: var(--face-slot, 120px);
+      height: var(--face-slot, 120px);
+      z-index:30;
+    }
+
+    #faceHud .faceosc-slot, #faceHudP5 .faceosc-slot{
+      position:relative;
+      width:100%; height:100%;
+      border-radius:28px;
+      overflow:hidden;                  /* 关键：把内部全部限制在方形里 */
+      /* 你原来的背景渐变/阴影保留：若已有，就别重复；若没有可用下面两行 */
+      background: linear-gradient(140deg,#5aa0ff,#35d1d1);
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+
+      /* 彻底取消历史位移 */
+      transform:none !important;
+      margin:0 !important;
+
+      /* 内部留白（logo与底部文字的空间） */
+      padding: 14% 10% 22% 10%;
+    }
+
+    /* 情绪标签样式已统一到下面 */
+
+    /* 只在第5页使用的“生成中”全屏居中遮罩 */
+    .p5 .overlay {
+      position: fixed;        /* 覆盖整屏，而不是右侧 panel */
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;           /* 盖在一切之上（不挡工具栏的话再降一点） */
+      pointer-events: none;   /* 不阻塞底部点击；若需要阻塞就去掉这一行 */
+    }
+
+    /* 蓝色提示条（方形 + 两行字的视觉示意），不改你其它任何组件 */
+    .p5 .overlay .sheet {
+      pointer-events: auto;
+      background: rgba(94, 118, 255, 0.7); 
+      color: #fff;
+      border-radius: 20px;
+      padding: 88px 58px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      max-width: 48vw;
+      min-width: 10px;
+      text-align: center;
+    }
+
+    .p5 .overlay .sheet h3 { 
+      margin: 0 0 6px; 
+      font-size: 30px; 
+      font-weight: 800; 
+      line-height: 1.1;
+    }
+    .p5 .overlay .sheet p { 
+      margin: 0; 
+      font-size: 20px; 
+      font-weight: 700; 
+      opacity: .95; 
+      line-height: 1.2;
+    }
+
+    /* ===================== 【P4/P5 最终锁定与样式】===================== */
+    /* 1. 核心修复：确保 P4/P5 面板是绝对定位的基准，解决漂移问题 */
+    #leftPanel, #leftPanelP5 {
+        position: relative !important; /* <--- 强制锁定 P4/P5 面板为基准 */
+    }
+
+    /* 2. 锁定 P4/P5 情绪标签的绝对位置 - 已统一到上面 */
+
+    /* 4. 文字样式：实现效果图 (文字在方形内部底部) */
+    #faceHud .emo-label, #faceHudP5 .emo-label {
+        /* 绝对定位在方形内部底部 */
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        
+        width: 100%; /* 确保文字占满宽度 */
+        text-align: center;
+        z-index: 100;
+        
+        /* 效果图样式 */
+        color: #FFF; 
+        font-size: 13px; 
+        font-weight: 600;
+        text-shadow: 0 1px 4px rgba(0,0,0,.5);
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis;
+        padding: 4px 8px;
+        box-sizing: border-box;
+    }
+
+    /* ===================== 【第 6 页样式】===================== */
+
+    /* 整体文字块的定位：居中且位于屏幕上半部分 */
+    .p6 .p6-text-block {
+        position: absolute;
+        top: 40%; /* 垂直居中于屏幕上半部分 */
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: 70%; 
+        max-width: 900px;
+    }
+
+    /* 统一清除 P6 文字块的默认边距 */
+    .p6 .p6-text-block * {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* 1. 感谢标题 (中文) */
+    .p6 .p6-title-cn {
+        font-size: 58px; 
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 18px; /* 标题组间距 */
+    }
+
+    /* 2. 核心说明文字 (中文) */
+    .p6 .p6-desc-cn {
+        font-size: 36px; /* 调整字号使其与标题区分 */
+        font-weight: 700;
+        line-height: 1.7;
+        text-shadow: 0 2px 8px rgba(0,0,0,.45);
+        margin-bottom: 32px; /* 与英文标题间距 */
+    }
+
+    /* 3. 感谢标题 (英文) */
+    .p6 .p6-title-en {
+        font-size: 38px; /* 调整字号 */
+        font-weight: 700;
+        opacity: 0.9;
+        line-height: 1.2;
+        margin-bottom: 20px; /* 与英文说明间距 */
+    }
+
+    /* 4. 核心说明文字 (英文) */
+    .p6 .p6-desc-en {
+        font-size: 28px; /* 调整字号 */
+        font-weight: 700;  /* 加粗字体 */
+        opacity: 0.85;
+        line-height: 1.5;
+        text-shadow: 0 1px 4px rgba(0,0,0,.45);
+    }
+
+    /* 调整按钮位置 */
+    .p6 .txt {
+        top: 78% !important; /* 强制按钮位于 78% 的高度 */
+    }
+
+    /* 第六页按钮样式调整 */
+    .p6 .btn {
+        width: 240px;  /* 比第一页的215px稍大 */
+        height: 90px;  /* 比第一页的80px稍大 */
+        border-radius: 29px;
+        font-size: 26px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <section class="page p1 active" style="background-image:url('./assets/frames/1.png')">
+    <div class="overlay-wrap">
+      <div class="txt brand">
+        <h1>共济星海</h1>
+        <h2>SYMBIOTIC COSMOS</h2>
+      </div>
+      <div class="txt cta">
+        <div class="btn"><span class="cn">开始</span><span class="en">START</span></div>
+      </div>
+      <div class="hot" data-to="2" title="开始 START"></div>
+    </div>
+  </section>
+
+  <section class="page p2" style="background-image:url('./assets/frames/2.png')">
+    <div class="overlay-wrap">
+      <div class="block">
+        <p class="cn1">欢迎你，</p>
+        <p class="cn2">未来家园构筑师。</p>
+        <p class="cn3">在这里，你的情感将成为点亮宇宙的微光。</p>
+        <p class="en1">Welcome, Future Home Creator.</p>
+        <p class="en2">Here, your emotions will become the sparks that light up the universe.</p>
+      </div>
+      <div class="txt" style="left:50%; top:calc(var(--p2-block-top) + 32%); transform:translate(-50%,0);">
+        <div class="btn"><span class="cn">开始共筑</span><span class="en">BEGIN THE CONSTRUCTION</span></div>
+      </div>
+      <div class="hot" data-to="3" title="开始共筑"></div>
+    </div>
+  </section>
+
+  <section class="page p3" style="background-image:url('./assets/frames/3.png')">
+    <div class="overlay-wrap">
+      <div class="title">
+        <h3>指尖微动，心念所至</h3>
+        <p>A Flick of a Finger, A Thought Made Visible</p>
+      </div>
+
+      <div class="p3-desc">
+        <p class="cn">你的画笔和你的情绪，都将化作独一无二的星辰。请跟随以下步骤，将你的未来家园具象化</p>
+        <p class="en">Your strokes and your feelings will transform into a unique star. Please follow the steps below to give form to the home of your dreams</p>
+      </div>
+
+      <div class="p3-bg">
+        <img src="./icons/Rectangle_p3.png" alt="background rectangle">
+      </div>
+
+      <div class="steps">
+        <div class="card">
+          <div class="media"><img src="./icons/draw_pic1.png" alt="draw"></div>
+          <span class="badge">1</span>
+          <p class="cn">点击画笔开始绘图</p>
+          <p class="en">Click the brush to start drawing</p>
+        </div>
+
+        <div class="card">
+          <div class="media"><img src="./icons/test1.png" alt="doodle sample"></div>
+          <span class="badge">2</span>
+          <p class="cn">鼠标绘图情绪识别</p>
+          <p class="en">Drawing/Emotion Recognition</p>
+        </div>
+
+        <div class="card">
+          <div class="media"><img src="./icons/draw_pic2.png" alt="upload"></div>
+          <span class="badge">3</span>
+          <p class="cn">点击上传图片</p>
+          <p class="en">Click to upload an image</p>
+        </div>
+
+        <div class="card">
+          <div class="media"><img src="./icons/test2.png" alt="generated sample"></div>
+          <span class="badge">4</span>
+          <p class="cn">图片生成成功</p>
+          <p class="en">Image generated successfully</p>
+        </div>
+      </div>
+
+      <div class="ok"><div class="btn">好哒 <small>OK</small></div></div>
+      <div class="hot" data-to="4" title="好哒 OK"></div>
+    </div>
+  </section>
+
+  <section class="page p4" style="background-image:url('./assets/frames/4.png')">
+    <div class="work-wrap">
+      <div class="titlebar">
+        <div class="ttl">画布 <span class="sub">Canvas</span></div>
+        <div class="ttl">生成图像 <span class="sub">Generating Image</span></div>
+      </div>
+
+      <div class="board">
+        <div class="panel" id="leftPanel">
+          <div id="faceHud" class="face-hud">
+              <div class="faceosc-slot">
+                  <img class="faceosc-base" src="./icons/face_base.png" alt="">
+                  <div class="faceosc-inner"><img class="faceosc-head" src="./icons/face_head.png" alt=""></div>
+              </div>
+              <div class="emo-label" id="emoLabel">（点击绘画开始识别）</div>
+          </div>
+      
+          <canvas id="drawCanvas" width="1024" height="1024"></canvas>
+      
+          <div class="wheel-guard" onwheel="event.stopPropagation()"></div>
+        </div>
+      
+        <div class="panel" id="rightPanel">
+          <img id="resultImg" class="result-img" src="" alt="result" />
+          <div class="qrcode-wrap"><div id="qrcode"></div></div>
+          <div class="wheel-guard" onwheel="event.stopPropagation()"></div>
+        </div>
+      </div>
+      
+
+      <div class="toolbar">
+        <div class="tool"><button class="tool-btn" id="btnDraw" title="绘画 Draw"><img src="./icons/draw.png" alt=""></button><div class="cn">绘画</div><div class="en">Draw</div></div>
+        <div class="tool"><button class="tool-btn" id="btnErase" title="擦除 Erase"><img src="./icons/erase.png" alt=""></button><div class="cn">擦除</div><div class="en">Erase</div></div>
+        <div class="tool"><button class="tool-btn" id="btnClear" title="清空 Delete"><img src="./icons/delete.png" alt=""></button><div class="cn">清空</div><div class="en">Delete</div></div>
+        <div class="tool"><button class="tool-btn" id="btnUpload" title="上传 Upload"><img src="./icons/upload.png" alt=""></button><div class="cn">上传</div><div class="en">Upload</div></div>
+        <div class="tool"><button class="tool-btn" id="btnGenerate" title="生成 Generate"><img src="./icons/generate.png" alt=""></button><div class="cn">生成图片</div><div class="en">Generate</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page p5" style="background-image:url('./assets/frames/4.png')"> 
+    <div class="work-wrap">
+        <div class="titlebar">
+            <div class="ttl">画布 <span class="sub">Canvas</span></div>
+            <div class="ttl">生成图像 <span class="sub">Generating Image</span></div>
+        </div>
+    
+        <div class="board">
+            <div class="panel p5-static-panel" id="leftPanelP5">
+              <div id="faceHudP5" class="face-hud p5-static-hud"> 
+                  <div class="faceosc-slot">
+                      <img class="faceosc-base" src="./icons/face_base.png" alt="">
+                      <div class="faceosc-inner"><img class="faceosc-head" src="./icons/face_head.png" alt=""></div>
+                  </div>
+                  <div class="emo-label" id="emoLabelP5">（实时情绪标签：2）</div>
+              </div>
+            
+                <canvas id="drawCanvasP5" width="1024" height="1024" style="width:92%; height:92%; background:#fff; border-radius:var(--radius-md); box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 12px 28px rgba(0,0,0,.18);"></canvas>
+            </div>
+            
+            <div class="panel p5-static-panel" id="rightPanelP5">
+                <img id="resultImgP5" class="result-img" src="" alt="result" />
+                <div class="qrcode-wrap"><div id="qrcodeP5"></div></div>
+            </div>
+        </div>
+    
+        <div class="toolbar" id="toolbarP5">
+            <div class="tool"><button class="tool-btn" disabled><img src="./icons/draw.png" alt=""></button><div class="cn">绘画</div><div class="en">Draw</div></div>
+            <div class="tool"><button class="tool-btn" disabled><img src="./icons/erase.png" alt=""></button><div class="cn">擦除</div><div class="en">Erase</div></div>
+            <div class="tool"><button class="tool-btn" disabled><img src="./icons/delete.png" alt=""></button><div class="cn">清空</div><div class="en">Delete</div></div>
+            <div class="tool"><button class="tool-btn" disabled><img src="./icons/upload.png" alt=""></button><div class="cn">上传</div><div class="en">Upload</div></div>
+            <div class="tool"><button class="tool-btn" disabled><img src="./icons/generate.png" alt=""></button><div class="cn">生成图片</div><div class="en">Generate</div></div>
+        </div>
+        
+    </div> 
+    
+    <div class="overlay" id="genOverlay">
+        <div class="sheet">
+          <h3>提交成功，正在将你的情感，注入未来家园的蓝图...</h3>
+          <p>Submission Successful! Infusing your emotions into the blueprint of tomorrow's home...</p>
+        </div>
+    </div>
+</section>
+
+  <section class="page p6" style="background-image:url('./assets/frames/6.png')">
+    <div class="overlay-wrap">
+      
+      <div class="p6-text-block">
+          <h2 class="p6-title-cn">感谢你，</h2>
+          <h2 class="p6-title-cn">未来家园设计师！</h2>
+          
+          <p class="p6-desc-cn">你的情感和畅想已成为浩瀚星海中的璀璨一隅。这一幅独特的 '家园蓝图'，将作为人类记忆的永恒档案，在宇宙中熠熠生辉。</p>
+          
+          <h3 class="p6-title-en">Thank you, Future Home Creator!</h3>
+          
+          <p class="p6-desc-en">Your emotions and visions have become a brilliant corner in the vast cosmos. This unique 'Home Blueprint' will shine brightly in the universe as an eternal archive of human memory.</p>
+      </div>
+      
+      <div class="txt" style="left:50%; top:80%; transform:translate(-50%,-50%);"> <div class="btn"><span class="cn">重新开始</span><span class="en">RESTART</span></div>
+      </div>
+      
+      <div class="hot" data-to="1" title="重新开始"></div>
+    </div>
+ </section>
+
+  <script>
+    /* ===================== 页面切换：滚轮 & 热区 ===================== */
+    let currentPage=1;
+    const byNum=n=>document.querySelector('.p'+n);
+    function goTo(n){
+      if(n<1||n>6||n===currentPage) return;
+      // 正在生成时只能进入 P5 或停留在 P5 (从 P5 出来时不检查 isGenerating)
+      if(isGenerating && n!==5 && currentPage !== 5) return; 
+      byNum(currentPage).classList.remove('active');
+      currentPage=n; 
+      byNum(currentPage).classList.add('active');
+      
+      // 切换到 P5 时，将 P4 的 Canvas 内容同步到 P5 的 Canvas 副本
+      if(n === 5) {
+          const p5Canvas = document.getElementById('drawCanvasP5');
+          const p5Ctx = p5Canvas.getContext('2d');
+          
+          // 先清空P5 Canvas
+          p5Ctx.clearRect(0, 0, p5Canvas.width, p5Canvas.height);
+          
+          // 设置白色背景
+          p5Ctx.fillStyle = '#ffffff';
+          p5Ctx.fillRect(0, 0, p5Canvas.width, p5Canvas.height);
+          
+          // 复制 P4 Canvas 的内容
+          p5Ctx.drawImage(canvas, 0, 0);
+      }
+      
+      // 播放对应页面的语音引导
+      playPageVoice(n);
+    }
+    document.querySelectorAll('.hot').forEach(h=>h.addEventListener('click',()=>goTo(+h.dataset.to)));
+
+    let wheelLock=false, isPointerOnCanvas=false;
+    window.addEventListener('wheel',e=>{
+      if(wheelLock) return;
+      if(isPointerOnCanvas || isGenerating) return;
+      wheelLock=true;
+      if(e.deltaY>0) goTo(currentPage+1); else if(e.deltaY<0) goTo(currentPage-1);
+      setTimeout(()=>wheelLock=false,420);
+    },{passive:true});
+
+    /* ===================== 画布绘制 ===================== */
+    const canvas=document.getElementById('drawCanvas'), ctx=canvas.getContext('2d');
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    let drawing=false, tool='draw';
+    
+    // 初始化时设置为 draw 模式
+    setTool('draw'); 
+
+    function setTool(t){ 
+      tool=t; 
+      ctx.globalCompositeOperation=(tool==='erase')?'destination-out':'source-over'; 
+      ctx.lineWidth=(tool==='erase')?36:6; 
+      
+      // 停止情绪监听 (修复点 3)
+      if(t === 'erase'){
+        stopEmotionListener();
+        // 重置情绪标签
+        currentEmotion = 2;
+        updateEmotionLabel(currentEmotion, false);
+      }
+    }
+    
+    function clearCanvas(){ 
+      // 完全清空Canvas
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      
+      // 重置Canvas背景为白色
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 重置绘制状态
+      drawing = false;
+      tool = 'draw';
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // 停止情绪监听
+      stopEmotionListener();
+      
+      // 重置情绪标签
+      currentEmotion = 2;
+      updateEmotionLabel(currentEmotion, false);
+      
+      console.log("🎨 Canvas已完全清空并重置");
+    }
+    
+    function getCanvasPos(e){ 
+      const r=canvas.getBoundingClientRect(); 
+      const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; 
+      const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; 
+      const sx=canvas.width/r.width, sy=canvas.height/r.height; 
+      return {x:x*sx,y:y*sy}; 
+    }
+    
+    canvas.addEventListener('pointerenter',()=>isPointerOnCanvas=true);
+    canvas.addEventListener('pointerleave',()=>isPointerOnCanvas=false);
+    
+    canvas.addEventListener('mousedown',e=>{
+      if(tool !== 'draw' && tool !== 'erase') return;
+      drawing=true;
+      const p=getCanvasPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y);
+    });
+    
+    canvas.addEventListener('mousemove',e=>{if(!drawing)return;const p=getCanvasPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();});
+    canvas.addEventListener('mouseup',()=>drawing=false);
+    canvas.addEventListener('mouseleave',()=>drawing=false);
+    canvas.addEventListener('touchstart',e=>{
+      if(tool !== 'draw' && tool !== 'erase') return;
+      e.preventDefault();
+      drawing=true;
+      const p=getCanvasPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y);
+    },{passive:false});
+    canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const p=getCanvasPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();},{passive:false});
+    canvas.addEventListener('touchend',()=>drawing=false);
+
+    /* ===================== FaceOSC 情绪控制 (修复点 1, 3) ===================== */
+    let emotionTimer = null; // 3秒锁定定时器
+    let emotionInterval = null; // 实时轮询定时器
+    let currentEmotion = 2; // 默认 fallback 值
+    const emoMap = {1: '严肃', 2: '高兴', 3: '惊讶', 4: '皱眉'};
+    
+    // 实时更新 P4 和 P5 的情绪标签显示
+    function updateEmotionLabel(emo, isLocked = false) {
+        const emoLabelP4 = document.getElementById('emoLabel');
+        const emoLabelP5 = document.getElementById('emoLabelP5');
+        const status = isLocked ? ' (已锁定)' : ' (实时)';
+        const labelText = `（${emoMap[emo] || emo} ${status}：${emo}）`;
+
+        if (emoLabelP4) emoLabelP4.textContent = labelText;
+        if (emoLabelP5) emoLabelP5.textContent = labelText;
+    }
+
+    // 停止情绪实时轮询和3秒定时器
+    function stopEmotionListener() {
+        if (emotionInterval) {
+            clearInterval(emotionInterval);
+            emotionInterval = null;
+        }
+        if (emotionTimer) {
+            clearTimeout(emotionTimer);
+            emotionTimer = null;
+        }
+    }
+
+    // 启动情绪识别和锁定流程 (绑定到 Draw 按钮)
+    function startEmotionLocking() {
+        // 1. 确保清空之前的监听
+        stopEmotionListener(); 
+        
+        // 2. 启动实时轮询 (用于 UI 显示，每 300ms)
+        emotionInterval = setInterval(async () => {
+            try {
+                const r = await fetch("http://127.0.0.1:5001/get_emotion", { cache: "no-store" });
+                const j = await r.json();
+                let emo = (j && j.emotion != null) ? Number(j.emotion) : 2;
+                if (![1, 2, 3, 4].includes(emo)) emo = 2;
+                updateEmotionLabel(emo, false); 
+            } catch (e) {
+                updateEmotionLabel(2, false); 
+            }
+        }, 300);
+
+        // 3. 启动 3 秒锁定定时器 (用于后端提交)
+        emotionTimer = setTimeout(() => {
+            stopEmotionListener(); // 锁定后停止实时轮询
+            fetch("http://127.0.0.1:5001/get_emotion", { cache: "no-store" })
+                .then(res => res.json())
+                .then(data => {
+                    let emo = (data && data.emotion != null) ? Number(data.emotion) : 2;
+                    if (![1, 2, 3, 4].includes(emo)) emo = 2;
+                    currentEmotion = emo; // 锁定情绪标签
+                    updateEmotionLabel(currentEmotion, true); // 更新为锁定状态
+                    console.log("🎭 Emotion 锁定为:", currentEmotion);
+                })
+                .catch(err => {
+                    console.error("❌ 获取 emotion 失败:", err);
+                    currentEmotion = 2;
+                    updateEmotionLabel(currentEmotion, true);
+                    console.log("🎭 Emotion 锁定为 (Fallback):", currentEmotion);
+                });
+        }, 3000);
+    }
+    
+    /* ===================== 上传 / 生成 (修复点 4) ===================== */
+    function blobFromCanvas(){ return new Promise(res=>canvas.toBlob(b=>res(b),'image/png')); }
+    
+    // 锁住/解锁画笔和橡皮擦
+    function setDrawToolsEnabled(on) {
+        // 注意：不改变颜色，只设置功能禁用
+        document.getElementById('btnDraw').disabled = !on;
+        document.getElementById('btnErase').disabled = !on;
+    }
+
+    // 显示上传成功提示框
+    function showUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        modal.style.display = 'block';
+        
+        // 2秒后自动关闭提示框
+        setTimeout(() => {
+            hideUploadModal();
+        }, 2000);
+    }
+
+    // 隐藏上传成功提示框
+    function hideUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        modal.style.display = 'none';
+        // 解锁画笔和橡皮擦
+        setDrawToolsEnabled(true);
+    }
+
+    async function uploadImage(){
+      // 停止情绪监听 (修复点 3)
+      stopEmotionListener();
+      
+      // 锁住画笔和橡皮擦 (修复点 4)
+      setDrawToolsEnabled(false);
+      
+      const blob=await blobFromCanvas(); 
+      const form=new FormData(); 
+      form.append('file',blob,'canvas.png');
+
+      console.log(`📥 准备上传文件...`);
+
+      try{ 
+        const r=await fetch("http://127.0.0.1:5001/upload",{method:"POST",body:form}); 
+        const j=await r.json(); 
+        if(!j||!j.url) throw new Error("无返回URL"); 
+        console.log("✅ 上传成功，公网 URL：",j.url); 
+        
+        // 显示上传成功提示框
+        showUploadModal();
+        
+      }
+      catch(e){ 
+        console.error("❌ 上传失败：",e); 
+        alert("上传失败，请检查 Flask 后端是否启动和 ngrok 是否正确设置 PUBLIC_URL。"); 
+        setDrawToolsEnabled(true); // 上传失败，解锁工具
+      }
+    }
+
+    let isGenerating=false;
+    async function generateImage(){
+      if(isGenerating) return;
+      
+      // 停止情绪监听 (修复点 3)
+      stopEmotionListener();
+
+      console.log(`🚀 提交生成任务，使用的锁定情绪: ${currentEmotion}`);
+      
+      // 在切换页面之前，先上传当前Canvas内容
+      console.log(`📤 生成前先上传Canvas内容...`);
+      try {
+        const blob = await blobFromCanvas();
+        const form = new FormData();
+        form.append('file', blob, 'canvas.png');
+        
+        const uploadResp = await fetch("http://127.0.0.1:5001/upload", {
+          method: "POST",
+          body: form
+        });
+        const uploadData = await uploadResp.json();
+        
+        if (!uploadData || !uploadData.url) {
+          throw new Error("上传失败，无返回URL");
+        }
+        console.log("✅ 生成前上传成功，URL：", uploadData.url);
+      } catch (e) {
+        console.error("❌ 生成前上传失败：", e);
+        alert("上传失败，无法生成图片");
+        return;
+      }
+      
+      isGenerating=true; 
+      setToolbarEnabled(false); // 锁住所有工具
+      setDrawToolsEnabled(false); // 确保画笔橡皮擦被锁住
+      
+      goTo(5); // 切换到 P5 (生成中)
+
+      try{
+        const r=await fetch("http://127.0.0.1:5001/generate",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({emotion:currentEmotion||2})
+        });
+        const data=await r.json();
+        
+        goTo(4); // 生成完成后，切换回 P4 显示结果
+        
+        if(data&&data.ok&&data.url){
+          // 操作 P4 页面元素
+          const img=document.getElementById('resultImg'); 
+          const qr=document.getElementById('qrcode'); 
+          
+          // ⚠️ 清除 P5 结果图，防止闪烁 (即使P5隐藏，也要处理)
+          document.getElementById('resultImgP5').src = ''; 
+          
+          img.src=data.url+"?t="+Date.now(); 
+          img.style.display="block";
+          
+          if(qr){ 
+            qr.innerHTML=""; 
+            new QRCode(qr,data.url); 
+          }
+          console.log("🎉 生成成功，结果图 URL：",data.url);
+        }else{ 
+          console.error("❌ 生成失败：",data); 
+          alert("生成失败："+(data?.error||"未知错误")); 
+        }
+      }catch(err){ 
+        goTo(4); // 异常时也跳回 P4 
+        console.error("❌ 生成出错：",err); 
+        alert("生成出错，请检查 Flask 日志。"); 
+      }
+      finally{ 
+        isGenerating=false; 
+        setToolbarEnabled(true); 
+        setDrawToolsEnabled(true); // 任务完成，解锁画笔和橡皮擦 (修复点 4)
+      }
+    }
+
+    // 禁用/启用工具栏按钮
+    function setToolbarEnabled(on){ 
+      ['btnDraw','btnErase','btnClear','btnUpload','btnGenerate'].forEach(id=>{
+        const el=document.getElementById(id); 
+        
+        if(el) {
+           // 对于清空、上传、生成：在 isGenerating 状态时统一禁用/启用
+           if (id === 'btnClear' || id === 'btnUpload' || id === 'btnGenerate') {
+             el.disabled=!on;
+           } else {
+             // 对于画笔/橡皮擦：只在非生成状态时启用，但其锁定由 setDrawToolsEnabled 独立控制
+             // 这里确保在生成中(on=false)时，它们也被禁用
+             if (!on) el.disabled = true;
+           }
+        }
+      }); 
+    }
+    
+    // ===================== 按钮绑定 =====================
+    document.getElementById('btnDraw').addEventListener('click',() => {
+        setTool('draw');
+        startEmotionLocking(); // 点击画笔时启动情绪识别和锁定
+    });
+    
+    document.getElementById('btnErase').addEventListener('click',() => {
+        setTool('erase');
+    });
+
+    document.getElementById('btnClear').addEventListener('click',() => {
+        clearCanvas();
+    });
+    
+    document.getElementById('btnUpload').addEventListener('click',uploadImage);
+    document.getElementById('btnGenerate').addEventListener('click',generateImage);
+
+    /* 初始化二维码占位 */
+    new QRCode(document.getElementById('qrcode'), "https://example.com/");
+    
+    // 初始化时清除情绪监听
+    stopEmotionListener();
+    
+    // 初始化时确保工具栏在非绘画/擦除模式下未被锁死
+    // 默认启用清空、上传、生成
+    setToolbarEnabled(true);
+    // 默认启用画笔和橡皮擦 (未在生成状态)
+    setDrawToolsEnabled(true);
+    
+    // P4 Canvas 初始填充白色
+    // 这一步最好在 CSS 中通过 background-color: white; 完成，但这里也加上
+    canvas.style.backgroundColor = 'white';
+    
+    // 确保Canvas内容也是白色背景
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    /* ===================== 背景音乐控制 ===================== */
+    const backgroundMusic = document.getElementById('backgroundMusic');
+    
+    // 设置音量（0.0 到 1.0，0.5 表示50%音量）
+    backgroundMusic.volume = 0.1; // 设置为30%音量，您可以根据需要调整
+    
+    /* ===================== 语音引导控制 ===================== */
+    const voiceGuide = document.getElementById('voiceGuide');
+    
+    // 设置语音引导音量（0.0 到 1.0）
+    voiceGuide.volume = 0.9; // 设置为80%音量，您可以根据需要调整
+    
+    // 每页对应的语音文件路径
+    const pageVoices = {
+      2: './assets/audio/voice_page2.mp3',  // 第2页语音
+      3: './assets/audio/voice_page3.mp3',  // 第3页语音
+      5: './assets/audio/voice_page5.mp3',  // 第5页语音
+      6: './assets/audio/voice_page6.mp3'   // 第6页语音
+    };
+    
+    // 播放指定页面的语音
+    function playPageVoice(pageNumber) {
+      const voiceFile = pageVoices[pageNumber];
+      if (voiceFile) {
+        // 停止当前播放的语音
+        voiceGuide.pause();
+        voiceGuide.currentTime = 0;
+        
+        // 设置新的语音文件
+        voiceGuide.src = voiceFile;
+        
+        // 播放语音（不循环）
+        voiceGuide.play().catch(error => {
+          console.log('语音播放失败:', error);
+        });
+      } else {
+        // 如果该页面没有语音文件，停止当前播放的语音
+        voiceGuide.pause();
+        voiceGuide.currentTime = 0;
+      }
+    }
+    
+    // 页面加载完成后自动播放背景音乐
+    window.addEventListener('load', () => {
+      // 现代浏览器需要用户交互才能播放音频，所以先尝试播放
+      backgroundMusic.play().catch(error => {
+        console.log('需要用户交互才能播放音频:', error);
+        // 如果自动播放失败，等待用户第一次点击
+        document.addEventListener('click', () => {
+          backgroundMusic.play().catch(e => console.log('播放失败:', e));
+        }, { once: true });
+      });
+      
+      // 第1页不需要语音，所以不播放
+    });
+    
+    // 页面刷新时重置音乐到开始位置
+    window.addEventListener('beforeunload', () => {
+      backgroundMusic.currentTime = 0;
+    });
+
+  </script>
+</body>
+</html>
+
+
