@@ -8,6 +8,10 @@
 ![Flask](https://img.shields.io/badge/Flask-2.3-green?logo=flask)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+## 🎬 演示视频
+
+https://github.com/rickychen7/cosmos-star-sea/raw/main/examples/demo.mp4
+
 ---
 
 ## ✨ 核心功能
